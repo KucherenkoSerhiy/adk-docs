@@ -90,15 +90,39 @@ agent_openai = LlmAgent(
     # ... other agent parameters
 )
 
-# --- Example Agent using Anthropic's Claude Haiku (non-Vertex) ---
+# --- Example Agent using Anthropic's Claude Haiku 4.5 (non-Vertex) ---
 # (Requires ANTHROPIC_API_KEY)
 agent_claude_direct = LlmAgent(
-    model=LiteLlm(model="anthropic/claude-3-haiku-20240307"),
+    model=LiteLlm(model="anthropic/claude-haiku-4-5-20251001"),
     name="claude_direct_agent",
     instruction="You are an assistant powered by Claude Haiku.",
     # ... other agent parameters
 )
 ```
+
+## Reading token usage
+
+`LiteLlm` fills `usage_metadata` on each `LlmResponse` from the provider's
+usage block, and the runner carries it on the corresponding `Event`. One
+invocation yields several events with usage when the agent makes tool calls or
+transfers to a sub-agent, so sum across the events to get the cost of a whole
+turn:
+
+```python
+prompt_tokens = 0
+response_tokens = 0
+for event in runner.run(user_id=user_id, session_id=session_id, new_message=message):
+    if event.usage_metadata is not None:
+        prompt_tokens += event.usage_metadata.prompt_token_count or 0
+        response_tokens += event.usage_metadata.candidates_token_count or 0
+
+print(f"prompt tokens: {prompt_tokens}, response tokens: {response_tokens}")
+```
+
+The fields follow `google.genai.types.GenerateContentResponseUsageMetadata`
+(`prompt_token_count`, `candidates_token_count`, `total_token_count`), whichever
+provider LiteLLM routed the call to. An event with no model call, such as a
+tool result or a transfer, has `usage_metadata` set to `None`.
 
 ## Anthropic thinking blocks
 
